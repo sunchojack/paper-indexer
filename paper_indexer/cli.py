@@ -58,6 +58,15 @@ def run(
         zotero_wanted = cfg.zotero.enabled and not dry_run
         notion_wanted = cfg.notion.enabled and not dry_run
 
+        def record(*args, **kwargs) -> None:
+            """Persist a result, unless this is a dry run.
+
+            A dry run must leave no trace: writing state would let it mark a
+            file 'indexed' that was never actually sent anywhere.
+            """
+            if not dry_run:
+                state.upsert(*args, **kwargs)
+
         for cand in iter_new_pdfs(cfg.source_dir, state, since=since, recursive=recursive):
             processed += 1
             name = cand.path.name
@@ -66,19 +75,19 @@ def run(
             except NotAPaperError:
                 skipped += 1
                 _echo(f"  ↷ {name}: no bibliographic metadata, not a paper — skipping")
-                state.upsert(cand.sha256, status="not_a_paper", filename=name)
+                record(cand.sha256, status="not_a_paper", filename=name)
                 continue
             except Exception as exc:
                 failed += 1
                 _echo(f"  ✗ {name}: metadata failed: {exc}")
-                state.upsert(cand.sha256, status="error", filename=name)
+                record(cand.sha256, status="error", filename=name)
                 continue
 
             # DOI-level dedup (a different file of an already-indexed paper).
             if state.is_indexed(cand.sha256, paper.doi):
                 skipped += 1
                 _echo(f"  ↷ {name}: already indexed (DOI match), skipping")
-                state.upsert(
+                record(
                     cand.sha256, status="indexed", doi=paper.doi, filename=name, title=paper.title
                 )
                 continue
@@ -97,7 +106,7 @@ def run(
                 if (zotero_key or not zotero_wanted) and (notion_id or not notion_wanted)
                 else "partial"
             )
-            state.upsert(
+            record(
                 cand.sha256,
                 status=status,
                 doi=paper.doi,

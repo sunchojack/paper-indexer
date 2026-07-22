@@ -176,6 +176,7 @@ def extract_identifier(pdf_path: str | Path) -> Optional[str]:
         import pdf2doi
     except Exception as exc:  # pragma: no cover
         raise MetadataError(f"pdf2doi not available: {exc}") from exc
+    _configure_no_content_egress()
     try:
         result = pdf2doi.pdf2doi(str(pdf_path))
     except Exception:
@@ -183,6 +184,28 @@ def extract_identifier(pdf_path: str | Path) -> Optional[str]:
     if isinstance(result, dict):
         return result.get("identifier")
     return None
+
+
+def _configure_no_content_egress() -> None:
+    """Stop pdf2doi from sending document text to third parties.
+
+    pdf2doi defaults to websearch=True, which googles the first 1000 characters
+    of any PDF it cannot identify locally. Pointed at a downloads folder that
+    means the opening page of every contract, payslip and private draft leaves
+    the machine as a search query.
+
+    With websearch off, identifiers come only from the document itself (its
+    metadata, text or filename). webvalidation stays on: it sends just the
+    resolved DOI to doi.org/Crossref, and only once the file has identified
+    itself as a published paper -- an identifier, never document content.
+    """
+    try:
+        import pdf2doi
+
+        pdf2doi.config.set("websearch", False)
+        pdf2doi.config.set("verbose", False)
+    except Exception:  # pragma: no cover - never let config tuning break a run
+        pass
 
 
 def has_bibliographic_evidence(meta: dict) -> bool:
@@ -206,6 +229,7 @@ def build_paper(pdf_path: str | Path, extra_tags: Optional[list[str]] = None) ->
     """
     pdf_path = Path(pdf_path)
     meta: dict = {}
+    _configure_no_content_egress()
 
     # 1. pdf2bib: identifier + metadata in one call.
     try:
