@@ -14,7 +14,7 @@ keywords = ["zotero", "notion", "pdf", "research", "bibliography", "doi"]
 
 dependencies = [
     "pdf2doi>=1.7",
-    "pdf2bib>=1.4",
+    "pdf2bib>=1.2",
     "habanero>=1.2",
     "notion-client>=2.2",
     "requests>=2.31",
