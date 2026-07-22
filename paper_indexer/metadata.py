@@ -22,6 +22,15 @@ class MetadataError(Exception):
     """Raised when no usable metadata could be extracted from a PDF."""
 
 
+class NotAPaperError(MetadataError):
+    """Raised when a PDF yielded no bibliographic evidence at all.
+
+    Distinct from MetadataError so the CLI can skip these quietly instead of
+    reporting them as failures: a folder of downloads legitimately contains
+    non-papers, and those should never reach Zotero or Notion.
+    """
+
+
 def _year_from(value: Any) -> Optional[str]:
     """Coerce assorted date shapes (int, '2021', '2021-05-03', crossref parts)."""
     if value is None:
@@ -176,6 +185,19 @@ def extract_identifier(pdf_path: str | Path) -> Optional[str]:
     return None
 
 
+def has_bibliographic_evidence(meta: dict) -> bool:
+    """True if a lookup actually produced bibliographic data for this PDF.
+
+    Pure function so the "is this a paper?" decision is testable without a live
+    lookup. This must be checked against the *metadata dict*, not the resulting
+    Paper: paper_from_metadata falls back to the filename for a missing title,
+    so a Paper always has one and checking it would let every readable PDF --
+    NDAs, payslips, scanned forms -- through.
+    """
+    meta = meta or {}
+    return bool(meta.get("doi") or meta.get("DOI") or meta.get("title") or meta.get("Title"))
+
+
 def build_paper(pdf_path: str | Path, extra_tags: Optional[list[str]] = None) -> Paper:
     """Full extraction: PDF -> normalized Paper.
 
@@ -206,7 +228,10 @@ def build_paper(pdf_path: str | Path, extra_tags: Optional[list[str]] = None) ->
             merged.update({k: v for k, v in meta.items() if v})
             meta = merged
 
-    paper = paper_from_metadata(meta, pdf_path, extra_tags=extra_tags)
-    if not paper.title:
-        raise MetadataError(f"No metadata could be extracted from {pdf_path}")
-    return paper
+    # 3. Require real evidence this is a paper (see has_bibliographic_evidence).
+    if not has_bibliographic_evidence(meta):
+        raise NotAPaperError(
+            f"No DOI or title found in {Path(pdf_path).name}; not a research paper"
+        )
+
+    return paper_from_metadata(meta, pdf_path, extra_tags=extra_tags)

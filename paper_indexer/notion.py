@@ -79,6 +79,32 @@ class NotionSync:
         except Exception as exc:  # pragma: no cover
             raise NotionError(f"notion-client not installed: {exc}") from exc
         self._client = Client(auth=token)
+        self.data_source_id = self._resolve_data_source(database_id)
+
+    def _resolve_data_source(self, ident: str) -> str:
+        """Return the data source id to write rows to.
+
+        Notion's current API splits a database (a container) from its data
+        sources (which hold the properties and rows). Rows are created under a
+        data source. Accept either id in config: try it as a data source first,
+        and fall back to resolving a database container's single data source.
+        """
+        # Try the database container first: that is the id people copy out of a
+        # Notion URL. Only then treat the id as a data source directly.
+        try:
+            sources = self._client.databases.retrieve(database_id=ident).get("data_sources") or []
+            if sources:
+                return sources[0]["id"]
+        except Exception:
+            pass
+        try:
+            self._client.request(path=f"data_sources/{ident}", method="GET")
+            return ident
+        except Exception as exc:
+            raise NotionError(
+                f"Notion id {ident!r} is neither a database nor a data source the "
+                f"integration can see — is the database shared with it? ({exc})"
+            ) from exc
 
     def find_by_doi(self, doi: str) -> Optional[str]:
         """Return an existing page id whose DOI matches, or None."""
@@ -87,8 +113,8 @@ class NotionSync:
             return None
         doi_prop = self.property_map.get("doi", "DOI")
         try:
-            resp = self._client.databases.query(
-                database_id=self.database_id,
+            resp = self._client.data_sources.query(
+                data_source_id=self.data_source_id,
                 filter={"property": doi_prop, "rich_text": {"contains": ndoi}},
                 page_size=1,
             )
@@ -102,7 +128,7 @@ class NotionSync:
         properties = build_properties(paper, self.property_map)
         try:
             page = self._client.pages.create(
-                parent={"database_id": self.database_id},
+                parent={"type": "data_source_id", "data_source_id": self.data_source_id},
                 properties=properties,
             )
         except Exception as exc:

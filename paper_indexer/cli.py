@@ -9,6 +9,7 @@ from typing import Optional
 import typer
 
 from .config import Config, load_config
+from .metadata import NotAPaperError
 from .scan import iter_new_pdfs
 from .state import StateStore
 
@@ -51,12 +52,22 @@ def run(
     with StateStore(cfg.state_db) as state:
         zotero = _make_zotero(cfg, dry_run)
         notion = _make_notion(cfg, dry_run)
+        # A target the user *wants* but that failed to initialize (Zotero closed,
+        # Notion token missing) must not count as success, or the run would be
+        # recorded "indexed" and never retried once the target comes back.
+        zotero_wanted = cfg.zotero.enabled and not dry_run
+        notion_wanted = cfg.notion.enabled and not dry_run
 
         for cand in iter_new_pdfs(cfg.source_dir, state, since=since, recursive=recursive):
             processed += 1
             name = cand.path.name
             try:
                 paper = _extract(cfg, cand.path)
+            except NotAPaperError:
+                skipped += 1
+                _echo(f"  ↷ {name}: no bibliographic metadata, not a paper — skipping")
+                state.upsert(cand.sha256, status="not_a_paper", filename=name)
+                continue
             except Exception as exc:
                 failed += 1
                 _echo(f"  ✗ {name}: metadata failed: {exc}")
@@ -81,7 +92,11 @@ def run(
             zotero_key = _push_zotero(zotero, paper)
             notion_id = _push_notion(notion, paper)
 
-            status = "indexed" if (zotero_key or zotero is None) and (notion_id or notion is None) else "partial"
+            status = (
+                "indexed"
+                if (zotero_key or not zotero_wanted) and (notion_id or not notion_wanted)
+                else "partial"
+            )
             state.upsert(
                 cand.sha256,
                 status=status,
