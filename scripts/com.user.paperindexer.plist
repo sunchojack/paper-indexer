@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  launchd agent for paper-indexer (macOS).
+
+  Install:
+    1. Edit the paths below:
+       - ProgramArguments[0]  -> absolute path to the paper-indexer binary
+                                 (run `which paper-indexer` inside your venv).
+       - the -c value         -> absolute path to your config.toml.
+    2. Copy to ~/Library/LaunchAgents/com.user.paperindexer.plist
+    3. launchctl load ~/Library/LaunchAgents/com.user.paperindexer.plist
+
+  This uses BOTH:
+    - StartInterval: sweep every 15 minutes.
+    - WatchPaths:    also sweep whenever ~/Downloads changes (near-real-time).
+  Keep one or remove the other to taste.
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.user.paperindexer</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/REPLACE/with/venv/bin/paper-indexer</string>
+        <string>run</string>
+        <string>-c</string>
+        <string>/REPLACE/with/path/to/config.toml</string>
+        <string>--since-days</string>
+        <string>7</string>
+    </array>
+
+    <key>StartInterval</key>
+    <integer>900</integer>
+
+    <key>WatchPaths</key>
+    <array>
+        <string>/Users/REPLACE/Downloads</string>
+    </array>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>/tmp/paper-indexer.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/paper-indexer.err.log</string>
+</dict>
+</plist>

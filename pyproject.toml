@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "paper-indexer"
+version = "0.1.0"
+description = "Local service that indexes research-paper PDFs from a folder into Zotero (local) and Notion."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "sunchojack" }]
+keywords = ["zotero", "notion", "pdf", "research", "bibliography", "doi"]
+
+dependencies = [
+    "pdf2doi>=1.7",
+    "pdf2bib>=1.4",
+    "habanero>=1.2",
+    "notion-client>=2.2",
+    "requests>=2.31",
+    "typer>=0.12",
+    "python-dotenv>=1.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[project.scripts]
+paper-indexer = "paper_indexer.cli:app"
+
+[tool.setuptools.packages.find]
+include = ["paper_indexer*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

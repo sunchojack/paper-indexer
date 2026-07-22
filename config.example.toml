@@ -1,0 +1,38 @@
+# Copy to config.toml and edit. Secrets (Notion token) go in .env, NOT here.
+
+# Folder to scan for new PDFs.
+source_dir = "~/Downloads"
+
+# Where the dedup/state database lives.
+state_db = "~/.paper-indexer/state.db"
+
+# Tags applied to every indexed paper (in both Zotero and Notion).
+default_tags = ["auto-indexed"]
+
+[zotero]
+enabled = true
+# Local Zotero desktop connector endpoint. Zotero must be running with
+# Settings -> Advanced -> "Allow other applications on this computer to
+# communicate with Zotero" enabled.
+connector_url = "http://127.0.0.1:23119"
+# Optional: name of a collection to file items into. Leave unset for My Library.
+# collection = "Inbox"
+
+[notion]
+enabled = true
+# The database (data source) id to append rows to.
+database_id = "REPLACE_WITH_DATABASE_ID"
+
+# Map logical fields to the property names in YOUR Notion database.
+# Only 'title' must be a Title property; the rest are optional and skipped if
+# the property does not exist.
+[notion.properties]
+title = "Title"
+authors = "Authors"
+year = "Year"
+journal = "Journal"
+doi = "DOI"
+url = "URL"
+abstract = "Abstract"
+tags = "Tags"
+added = "Added"
